@@ -759,7 +759,7 @@ class NFSeDownloaderApp:
     
     def __init__(self, root):
         self.root = root
-        self.root.title("NFSe Downloader Pro - V16 (Melhorado)")
+        self.root.title("NFSe Downloader Pro - V18 (Interface com Abas)")
         self.root.geometry("800x900")
         
         # Gerenciadores
@@ -788,34 +788,68 @@ class NFSeDownloaderApp:
         # Criar interface
         self._criar_interface()
         
+        # Preencher lista de empresas
+        self.atualizar_lista_visual()
+        
         # Limpar cache antigo ao iniciar
         self.cache.limpar_cache_antigo()
         
         logger.info("Aplicação iniciada - V16 Melhorado")
     
     def _criar_interface(self):
-        """Cria todos os elementos da interface"""
+        """Cria interface com sistema de abas"""
         
-        # ===== FRAME CADASTRO =====
+        # ===== NOTEBOOK (SISTEMA DE ABAS) =====
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        # ===== ABA 1: EMPRESAS =====
+        self.tab_empresas = tk.Frame(self.notebook)
+        self.notebook.add(self.tab_empresas, text="📁 Empresas")
+        self._criar_aba_empresas()
+        
+        # ===== ABA 2: CONFIGURAÇÃO =====
+        self.tab_configuracao = tk.Frame(self.notebook)
+        self.notebook.add(self.tab_configuracao, text="⚙️ Configuração")
+        self._criar_aba_configuracao()
+        
+        # ===== ABA 3: RELATÓRIOS =====
+        self.tab_relatorios = tk.Frame(self.notebook)
+        self.notebook.add(self.tab_relatorios, text="📊 Relatórios")
+        self._criar_aba_relatorios()
+        
+        # Bind para atualizar preview ao mudar de aba
+        self.notebook.bind('<<NotebookTabChanged>>', self._atualizar_preview_config)
+    
+    def _criar_aba_empresas(self):
+        """Cria conteúdo da aba Empresas"""
+        
+        # ===== CADASTRO DE EMPRESA =====
         self.frame_cadastro = tk.LabelFrame(
-            self.root, 
-            text="Cadastrar / Editar Empresa", 
-            padx=10, 
+            self.tab_empresas,
+            text="📝 Cadastrar / Editar Empresa",
+            padx=10,
             pady=10,
             font=("Arial", 10, "bold")
         )
-        self.frame_cadastro.pack(fill="x", padx=10, pady=5)
+        self.frame_cadastro.pack(fill="x", padx=10, pady=10)
         
         # Nome
         tk.Label(self.frame_cadastro, text="Nome da Empresa:").grid(row=0, column=0, sticky="w", pady=2)
-        self.entry_nome = tk.Entry(self.frame_cadastro, width=50)
-        self.entry_nome.grid(row=0, column=1, columnspan=3, padx=5, pady=2, sticky="w")
+        self.entry_nome = tk.Entry(self.frame_cadastro, width=40)
+        self.entry_nome.grid(row=0, column=1, columnspan=2, padx=5, pady=2, sticky="w")
         
         # CNPJ
         tk.Label(self.frame_cadastro, text="CNPJ:").grid(row=1, column=0, sticky="w", pady=2)
         self.entry_cnpj = tk.Entry(self.frame_cadastro, width=20)
         self.entry_cnpj.grid(row=1, column=1, padx=5, pady=2, sticky="w")
         self.entry_cnpj.bind('<FocusOut>', self._validar_cnpj_campo)
+        
+        # Senha Portal (ao lado do CNPJ)
+        self.lbl_senha_portal = tk.Label(self.frame_cadastro, text="Senha Portal:")
+        self.lbl_senha_portal.grid(row=1, column=2, sticky="w", padx=(20, 0), pady=2)
+        self.entry_senha_portal = tk.Entry(self.frame_cadastro, width=20, show="*")
+        self.entry_senha_portal.grid(row=1, column=3, padx=5, pady=2, sticky="w")
         
         # Checkbox certificado
         self.chk_certificado = tk.Checkbutton(
@@ -826,60 +860,60 @@ class NFSeDownloaderApp:
         )
         self.chk_certificado.grid(row=2, column=1, columnspan=3, sticky="w", pady=5)
         
-        # Campos senha portal
-        self.lbl_senha_portal = tk.Label(self.frame_cadastro, text="Senha Portal:")
-        self.entry_senha_portal = tk.Entry(self.frame_cadastro, width=20, show="*")
+        # Campos PFX (em linha separada, ocultos por padrão)
+        self.frame_pfx = tk.Frame(self.frame_cadastro)
+        self.frame_pfx.grid(row=3, column=0, columnspan=4, sticky="ew", pady=5)
         
-        # Campos PFX
-        self.lbl_pfx = tk.Label(self.frame_cadastro, text="Arquivo .PFX:")
-        self.entry_pfx = tk.Entry(self.frame_cadastro, width=40)
-        self.btn_pfx = tk.Button(
-            self.frame_cadastro, 
-            text="📁", 
-            command=self.buscar_pfx, 
-            width=3
-        )
+        tk.Label(self.frame_pfx, text="Arquivo .PFX:").pack(side="left", padx=(0, 5))
+        self.entry_pfx = tk.Entry(self.frame_pfx, width=35)
+        self.entry_pfx.pack(side="left", padx=5)
+        self.btn_pfx = tk.Button(self.frame_pfx, text="📁", command=self.buscar_pfx, width=3)
+        self.btn_pfx.pack(side="left", padx=5)
         
-        self.lbl_senha_pfx = tk.Label(self.frame_cadastro, text="Senha do PFX:")
-        self.entry_senha_pfx = tk.Entry(self.frame_cadastro, width=20, show="*")
-        
-        # Inicializar campos
-        self.toggle_campos_login()
+        tk.Label(self.frame_pfx, text="Senha PFX:").pack(side="left", padx=(10, 5))
+        self.entry_senha_pfx = tk.Entry(self.frame_pfx, width=15, show="*")
+        self.entry_senha_pfx.pack(side="left", padx=5)
         
         # Botões de ação
+        frame_botoes_cadastro = tk.Frame(self.frame_cadastro)
+        frame_botoes_cadastro.grid(row=4, column=0, columnspan=4, pady=10)
+        
         self.btn_salvar = tk.Button(
-            self.frame_cadastro,
+            frame_botoes_cadastro,
             text="💾 Salvar Nova",
-            command=self.salvar_empresa_action,
+            font=("Arial", 9, "bold"),
             bg="#4CAF50",
             fg="white",
-            font=("Arial", 9, "bold"),
-            cursor="hand2"
+            command=self.salvar_empresa_action,
+            cursor="hand2",
+            width=15
         )
-        self.btn_salvar.grid(row=1, column=4, padx=5, rowspan=4, sticky="ns")
+        self.btn_salvar.pack(side="left", padx=5)
         
         self.btn_cancelar = tk.Button(
-            self.frame_cadastro,
+            frame_botoes_cadastro,
             text="❌ Cancelar",
+            font=("Arial", 9),
             command=self.limpar_campos,
-            state="disabled",
-            cursor="hand2"
+            cursor="hand2",
+            width=12,
+            state="disabled"
         )
-        self.btn_cancelar.grid(row=1, column=5, padx=5, rowspan=4, sticky="ns")
+        self.btn_cancelar.pack(side="left", padx=5)
         
-        # ===== FRAME LISTA =====
+        # ===== LISTA DE EMPRESAS =====
         frame_lista = tk.LabelFrame(
-            self.root, 
-            text="Empresas Cadastradas", 
-            padx=10, 
+            self.tab_empresas,
+            text="📋 Empresas Cadastradas",
+            padx=10,
             pady=10,
             font=("Arial", 10, "bold")
         )
-        frame_lista.pack(fill="both", expand=True, padx=10, pady=5)
+        frame_lista.pack(fill="both", expand=True, padx=10, pady=10)
         
-        # Treeview
+        # TreeView com seleção múltipla
         columns = ('nome', 'cnpj', 'tipo_acesso')
-        self.tree = ttk.Treeview(frame_lista, columns=columns, show='headings', height=6, selectmode='extended')
+        self.tree = ttk.Treeview(frame_lista, columns=columns, show='headings', height=8, selectmode='extended')
         self.tree.heading('nome', text='Nome da Empresa')
         self.tree.heading('cnpj', text='CNPJ')
         self.tree.heading('tipo_acesso', text='Tipo Acesso')
@@ -894,7 +928,7 @@ class NFSeDownloaderApp:
         self.tree.configure(yscrollcommand=scrollbar.set)
         
         # Botões da lista
-        frame_botoes_lista = tk.Frame(self.root)
+        frame_botoes_lista = tk.Frame(self.tab_empresas)
         frame_botoes_lista.pack(pady=5)
         
         tk.Button(
@@ -932,7 +966,7 @@ class NFSeDownloaderApp:
             cursor="hand2"
         ).pack(side="left", padx=5)
         
-        # Label informativo
+        # Label contador
         self.lbl_selecionadas = tk.Label(
             frame_botoes_lista,
             text="💡 Use CTRL+Clique para múltiplas | SHIFT+Clique para faixa",
@@ -941,172 +975,380 @@ class NFSeDownloaderApp:
         )
         self.lbl_selecionadas.pack(side="left", padx=10)
         
-        # Bindings para atualizar contador de selecionadas
+        # Binding para atualizar contador
         self.tree.bind('<<TreeviewSelect>>', self.atualizar_contador_selecao)
         
-        # ===== FRAME EXECUÇÃO =====
-        frame_exec = tk.LabelFrame(
-            self.root, 
-            text="Configuração de Execução", 
-            padx=10, 
+        # Botão para ir para configuração
+        frame_navegacao = tk.Frame(self.tab_empresas, bg="#f0f0f0", relief="raised", bd=1)
+        frame_navegacao.pack(fill="x", side="bottom", pady=0)
+        
+        tk.Frame(frame_navegacao, height=10, bg="#f0f0f0").pack()
+        
+        tk.Button(
+            frame_navegacao,
+            text="Próximo: Configurar Download →",
+            font=("Arial", 10, "bold"),
+            bg="#2196F3",
+            fg="white",
+            command=lambda: self.notebook.select(1),  # Muda para aba 2
+            cursor="hand2",
+            width=30,
+            height=2
+        ).pack(pady=10)
+    
+    def _criar_aba_configuracao(self):
+        """Cria conteúdo da aba Configuração"""
+        
+        # Frame principal com scroll
+        canvas = tk.Canvas(self.tab_configuracao)
+        scrollbar = ttk.Scrollbar(self.tab_configuracao, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # ===== PASTA DE DOWNLOAD =====
+        frame_pasta = tk.LabelFrame(
+            scrollable_frame,
+            text="📁 Pasta Raiz de Download",
+            padx=10,
             pady=10,
             font=("Arial", 10, "bold")
         )
-        frame_exec.pack(fill="x", padx=10, pady=10)
+        frame_pasta.pack(fill="x", padx=10, pady=10)
         
-        # Competência
-        frame_comp = tk.Frame(frame_exec)
-        frame_comp.pack(fill="x", pady=(0, 10))
-        tk.Label(frame_comp, text="🗓️ Filtrar Competência (MM/AAAA):").pack(side="left")
-        self.entry_competencia = tk.Entry(
-            frame_comp, 
-            textvariable=self.competencia_filtro, 
-            width=15
+        frame_pasta_input = tk.Frame(frame_pasta)
+        frame_pasta_input.pack(fill="x")
+        
+        entry_pasta = tk.Entry(frame_pasta_input, textvariable=self.path_download, width=60)
+        entry_pasta.pack(side="left", padx=(0, 5))
+        
+        tk.Button(
+            frame_pasta_input,
+            text="📁 Alterar Pasta...",
+            command=self.selecionar_pasta,
+            cursor="hand2"
+        ).pack(side="left")
+        
+        # ===== COMPETÊNCIA =====
+        frame_comp = tk.LabelFrame(
+            scrollable_frame,
+            text="📅 Filtrar por Competência",
+            padx=10,
+            pady=10,
+            font=("Arial", 10, "bold")
         )
-        self.entry_competencia.pack(side="left", padx=5)
-        self.entry_competencia.bind('<FocusOut>', self._validar_competencia_campo)
-        tk.Label(frame_comp, text="(Ex: 01/2026)", fg="gray").pack(side="left")
+        frame_comp.pack(fill="x", padx=10, pady=10)
         
-        # Tipo download
-        frame_tipo = tk.Frame(frame_exec)
-        frame_tipo.pack(fill="x", pady=(5, 10))
-        tk.Label(frame_tipo, text="📥 O que baixar?").pack(side="left", padx=(0, 10))
+        frame_comp_input = tk.Frame(frame_comp)
+        frame_comp_input.pack()
+        
+        tk.Entry(frame_comp_input, textvariable=self.competencia_filtro, width=15).pack(side="left", padx=5)
+        tk.Label(frame_comp_input, text="(Ex: 01/2026) - Deixe vazio para últimos 30 dias", fg="gray").pack(side="left")
+        
+        # ===== TIPO DE DOWNLOAD =====
+        frame_tipo = tk.LabelFrame(
+            scrollable_frame,
+            text="📥 O que baixar?",
+            padx=10,
+            pady=10,
+            font=("Arial", 10, "bold")
+        )
+        frame_tipo.pack(fill="x", padx=10, pady=10)
+        
+        # Frame interno para organizar horizontalmente
+        frame_tipo_opcoes = tk.Frame(frame_tipo)
+        frame_tipo_opcoes.pack(anchor="w")
         
         tk.Radiobutton(
-            frame_tipo, 
-            text="Apenas XML", 
-            variable=self.tipo_download, 
-            value="xml"
-        ).pack(side="left", padx=5)
+            frame_tipo_opcoes,
+            text="Apenas XML",
+            variable=self.tipo_download,
+            value="xml",
+            command=self._atualizar_preview_config
+        ).pack(side="left", padx=(0, 20))
         
         tk.Radiobutton(
-            frame_tipo, 
-            text="Apenas PDF", 
-            variable=self.tipo_download, 
-            value="pdf"
-        ).pack(side="left", padx=5)
+            frame_tipo_opcoes,
+            text="Apenas PDF",
+            variable=self.tipo_download,
+            value="pdf",
+            command=self._atualizar_preview_config
+        ).pack(side="left", padx=(0, 20))
         
         tk.Radiobutton(
-            frame_tipo, 
-            text="PDF + XML (Ambos)", 
-            variable=self.tipo_download, 
-            value="ambos"
-        ).pack(side="left", padx=5)
+            frame_tipo_opcoes,
+            text="PDF + XML (Ambos)",
+            variable=self.tipo_download,
+            value="ambos",
+            command=self._atualizar_preview_config
+        ).pack(side="left")
         
-        # Opções avançadas
-        frame_opcoes = tk.Frame(frame_exec)
-        frame_opcoes.pack(fill="x", pady=(5, 10))
+        # ===== TIPO DE NFS-E =====
+        frame_nfse = tk.LabelFrame(
+            scrollable_frame,
+            text="📋 Tipo de NFS-e para baixar",
+            padx=10,
+            pady=10,
+            font=("Arial", 10, "bold")
+        )
+        frame_nfse.pack(fill="x", padx=10, pady=10)
+        
+        tk.Checkbutton(
+            frame_nfse,
+            text="📤 NFS-e EMITIDAS (notas que você emitiu para clientes)",
+            variable=self.var_baixar_emitidas,
+            command=self._atualizar_preview_config
+        ).pack(anchor="w", pady=2)
+        
+        tk.Checkbutton(
+            frame_nfse,
+            text="📥 NFS-e RECEBIDAS (notas que você recebeu de prestadores)",
+            variable=self.var_baixar_recebidas,
+            command=self._atualizar_preview_config
+        ).pack(anchor="w", pady=2)
+        
+        # ===== OPÇÕES AVANÇADAS =====
+        frame_opcoes = tk.LabelFrame(
+            scrollable_frame,
+            text="⚙️ Opções Avançadas",
+            padx=10,
+            pady=10,
+            font=("Arial", 10, "bold")
+        )
+        frame_opcoes.pack(fill="x", padx=10, pady=10)
         
         tk.Checkbutton(
             frame_opcoes,
             text="⚡ Usar cache (evitar downloads duplicados)",
             variable=self.var_usar_cache
-        ).pack(side="left", padx=5)
+        ).pack(anchor="w", pady=2)
         
         tk.Checkbutton(
             frame_opcoes,
             text="👁️ Modo headless (navegador oculto)",
             variable=self.var_modo_headless
-        ).pack(side="left", padx=5)
+        ).pack(anchor="w", pady=2)
         
-        # Frame para tipo de NFS-e
-        frame_tipo_nfse = tk.Frame(frame_exec)
-        frame_tipo_nfse.pack(fill="x", pady=10)
+        # ===== PREVIEW DAS CONFIGURAÇÕES =====
+        frame_preview = tk.LabelFrame(
+            scrollable_frame,
+            text="👁️ Preview das Configurações",
+            padx=10,
+            pady=10,
+            font=("Arial", 10, "bold"),
+            bg="#E8F5E9"
+        )
+        frame_preview.pack(fill="x", padx=10, pady=10)
         
-        tk.Label(
-            frame_tipo_nfse, 
-            text="📋 Tipo de NFS-e para baixar:",
-            font=("Arial", 10, "bold")
-        ).pack(anchor="w")
+        self.lbl_preview = tk.Label(
+            frame_preview,
+            text="",
+            justify="left",
+            font=("Consolas", 9),
+            bg="#E8F5E9"
+        )
+        self.lbl_preview.pack(anchor="w")
         
-        frame_checks_nfse = tk.Frame(frame_tipo_nfse)
-        frame_checks_nfse.pack(fill="x", pady=5)
+        # Atualizar preview inicial
+        self._atualizar_preview_config()
         
-        tk.Checkbutton(
-            frame_checks_nfse,
-            text="📤 NFS-e EMITIDAS (notas que você emitiu)",
-            variable=self.var_baixar_emitidas,
-            font=("Arial", 9)
-        ).pack(side="left", padx=(0, 20))
+        # ===== BOTÕES DE AÇÃO =====
+        frame_acoes = tk.Frame(scrollable_frame, bg="#f0f0f0", relief="raised", bd=1)
+        frame_acoes.pack(fill="x", pady=10)
         
-        tk.Checkbutton(
-            frame_checks_nfse,
-            text="📥 NFS-e RECEBIDAS (notas que você recebeu)",
-            variable=self.var_baixar_recebidas,
-            font=("Arial", 9)
-        ).pack(side="left")
+        tk.Frame(frame_acoes, height=10, bg="#f0f0f0").pack()
         
-        # Pasta download
-        tk.Label(frame_exec, text="📂 Pasta Raiz de Download:").pack(anchor="w")
-        frame_path = tk.Frame(frame_exec)
-        frame_path.pack(fill="x")
-        self.entry_path = tk.Entry(frame_path, textvariable=self.path_download, width=60)
-        self.entry_path.pack(side="left", padx=(0, 5))
-        tk.Button(
-            frame_path, 
-            text="Alterar Pasta...", 
-            command=self.selecionar_pasta
-        ).pack(side="left")
-        
-        # ===== BOTÃO EXECUTAR =====
-        frame_controles = tk.Frame(self.root)
-        frame_controles.pack(fill="x", padx=20, pady=10)
+        frame_botoes = tk.Frame(frame_acoes, bg="#f0f0f0")
+        frame_botoes.pack(pady=10)
         
         self.btn_run = tk.Button(
-            frame_controles,
+            frame_botoes,
             text="🚀 INICIAR DOWNLOADS",
             font=("Arial", 12, "bold"),
             bg="#4CAF50",
             fg="white",
             command=self.iniciar_thread,
             cursor="hand2",
+            width=25,
             height=2
         )
-        self.btn_run.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        self.btn_run.pack(side="left", padx=10)
         
         self.btn_cancelar_exec = tk.Button(
-            frame_controles,
+            frame_botoes,
             text="⛔ CANCELAR",
             font=("Arial", 12, "bold"),
             bg="#f44336",
             fg="white",
             command=self.cancelar_execucao,
             cursor="hand2",
+            width=15,
             height=2,
             state="disabled"
         )
-        self.btn_cancelar_exec.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        self.btn_cancelar_exec.pack(side="left", padx=10)
         
         # ===== STATUS E LOG =====
         self.lbl_status = tk.Label(
-            self.root, 
-            text="⏳ Aguardando início...", 
+            scrollable_frame,
+            text="⏳ Aguardando início...",
             fg="blue",
             font=("Arial", 10)
         )
         self.lbl_status.pack(pady=5)
         
-        # Frame para log
-        frame_log = tk.LabelFrame(self.root, text="Log de Execução", padx=5, pady=5)
+        frame_log = tk.LabelFrame(scrollable_frame, text="Log de Execução", padx=5, pady=5)
         frame_log.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         
         self.text_log = scrolledtext.ScrolledText(
-            frame_log, 
-            height=8, 
+            frame_log,
+            height=12,
+            width=80,
             state='disabled',
-            bg="#f5f5f5",
             font=("Consolas", 8)
         )
         self.text_log.pack(fill="both", expand=True)
         
-        # Atualizar lista
-        self.atualizar_lista_visual()
+        # Tags para cores no log
+        self.text_log.tag_config("INFO", foreground="black")
+        self.text_log.tag_config("SUCCESS", foreground="green", font=("Consolas", 8, "bold"))
+        self.text_log.tag_config("WARNING", foreground="orange")
+        self.text_log.tag_config("ERROR", foreground="red", font=("Consolas", 8, "bold"))
     
-    # ========================================================================
-    # MÉTODOS DE VALIDAÇÃO
-    # ========================================================================
+    def _criar_aba_relatorios(self):
+        """Cria conteúdo da aba Relatórios"""
+        
+        # Título
+        tk.Label(
+            self.tab_relatorios,
+            text="📊 Gerar Relatórios Excel a partir de XMLs",
+            font=("Arial", 14, "bold")
+        ).pack(pady=20)
+        
+        # Descrição
+        frame_desc = tk.Frame(self.tab_relatorios)
+        frame_desc.pack(padx=20, pady=10)
+        
+        tk.Label(
+            frame_desc,
+            text="Selecione arquivos XML de NFS-e e gere relatórios Excel formatados\n"
+                 "Os XMLs podem ser de qualquer local (Downloads, Email, Backup, etc.)",
+            justify="center",
+            fg="gray"
+        ).pack()
+        
+        # Botão principal
+        tk.Button(
+            self.tab_relatorios,
+            text="📊 GERAR RELATÓRIOS EXCEL",
+            font=("Arial", 12, "bold"),
+            bg="#2196F3",
+            fg="white",
+            command=self.gerar_relatorios_manual,
+            cursor="hand2",
+            width=30,
+            height=3
+        ).pack(pady=20)
+        
+        # Informações adicionais
+        frame_info = tk.LabelFrame(
+            self.tab_relatorios,
+            text="ℹ️ Como Funciona",
+            padx=20,
+            pady=15
+        )
+        frame_info.pack(fill="x", padx=20, pady=10)
+        
+        info_text = """
+1. Clique no botão acima para abrir a janela de geração de relatórios
+
+2. Selecione os arquivos XML das notas fiscais
+   • Podem ser de qualquer pasta do computador
+   • Selecione múltiplos arquivos de uma vez (CTRL + Clique)
+
+3. Escolha o tipo de relatório:
+   • Emitidas: Para notas que você emitiu
+   • Recebidas: Para notas que você recebeu
+
+4. Escolha onde salvar o arquivo Excel
+
+5. O sistema processará todos os XMLs e gerará um relatório profissional
+   com todas as informações organizadas e totalizadas
+"""
+        
+        tk.Label(
+            frame_info,
+            text=info_text,
+            justify="left",
+            font=("Arial", 9)
+        ).pack(anchor="w")
+        
+        # Exemplo visual
+        frame_exemplo = tk.LabelFrame(
+            self.tab_relatorios,
+            text="📋 O Relatório Contém",
+            padx=20,
+            pady=15
+        )
+        frame_exemplo.pack(fill="x", padx=20, pady=10)
+        
+        colunas = [
+            "• Número da NFS-e",
+            "• Data de Emissão e Competência",
+            "• Dados do Tomador/Prestador",
+            "• Código e Descrição do Serviço",
+            "• Valores (Serviço, Base de Cálculo, ISSQN, Líquido)",
+            "• Alíquota e Percentual de Tributos",
+            "• Local de Prestação",
+            "• Totais calculados automaticamente"
+        ]
+        
+        tk.Label(
+            frame_exemplo,
+            text="\n".join(colunas),
+            justify="left",
+            font=("Arial", 9)
+        ).pack(anchor="w")
     
-    def _validar_cnpj_campo(self, event=None):
+    def _atualizar_preview_config(self, event=None):
+        """Atualiza o preview das configurações"""
+        try:
+            qtd_empresas = len(self.tree.selection())
+            comp = self.competencia_filtro.get().strip() or "Últimos 30 dias"
+            
+            tipo_dl = self.tipo_download.get()
+            tipo_dl_texto = {
+                "xml": "Apenas XML",
+                "pdf": "Apenas PDF",
+                "ambos": "PDF + XML (Ambos)"
+            }.get(tipo_dl, "PDF + XML")
+            
+            emitidas = "SIM" if self.var_baixar_emitidas.get() else "NÃO"
+            recebidas = "SIM" if self.var_baixar_recebidas.get() else "NÃO"
+            
+            pasta = self.path_download.get() or "(não definida)"
+            if len(pasta) > 50:
+                pasta = pasta[:47] + "..."
+            
+            preview = f"""📊 Empresas selecionadas: {qtd_empresas}
+📅 Competência: {comp}
+📥 Download: {tipo_dl_texto}
+📤 Emitidas: {emitidas}  |  📥 Recebidas: {recebidas}
+📁 Pasta: {pasta}"""
+            
+            self.lbl_preview.config(text=preview)
+        except:
+            pass
+
         """Valida CNPJ ao sair do campo"""
         cnpj = self.entry_cnpj.get().strip()
         if cnpj and not self.validador.validar_cnpj(cnpj):
@@ -1164,6 +1406,18 @@ class NFSeDownloaderApp:
             self.lbl_status.config(text=texto, fg=cor)
         self.root.after(0, _update)
     
+    
+    def _validar_cnpj_campo(self, event=None):
+        """Valida CNPJ ao sair do campo"""
+        cnpj = self.entry_cnpj.get().strip()
+        if cnpj and not self.validador.validar_cnpj(cnpj):
+            messagebox.showwarning(
+                "CNPJ Inválido",
+                "O CNPJ informado não é válido.\n"
+                "Por favor, verifique e corrija."
+            )
+            self.entry_cnpj.focus()
+    
     def buscar_pfx(self):
         """Abre diálogo para selecionar arquivo PFX"""
         arquivo = filedialog.askopenfilename(
@@ -1176,25 +1430,15 @@ class NFSeDownloaderApp:
     
     def toggle_campos_login(self):
         """Alterna entre campos de senha e certificado"""
-        # Esconder todos
-        self.lbl_senha_portal.grid_forget()
-        self.entry_senha_portal.grid_forget()
-        self.lbl_pfx.grid_forget()
-        self.entry_pfx.grid_forget()
-        self.btn_pfx.grid_forget()
-        self.lbl_senha_pfx.grid_forget()
-        self.entry_senha_pfx.grid_forget()
-        
         if self.var_usa_certificado.get():
-            # Mostrar campos PFX
-            self.lbl_pfx.grid(row=3, column=0, sticky="w", pady=2)
-            self.entry_pfx.grid(row=3, column=1, columnspan=2, padx=5, pady=2, sticky="w")
-            self.btn_pfx.grid(row=3, column=3, sticky="w", pady=2)
-            self.lbl_senha_pfx.grid(row=4, column=0, sticky="w", pady=2)
-            self.entry_senha_pfx.grid(row=4, column=1, padx=5, pady=2, sticky="w")
+            # Mostrar campos PFX (frame já criado, só precisa mostrar)
+            self.lbl_senha_portal.grid_forget()
+            self.entry_senha_portal.grid_forget()
+            self.frame_pfx.grid(row=3, column=0, columnspan=4, sticky="ew", pady=5)
         else:
             # Mostrar campo senha
-            self.lbl_senha_portal.grid(row=1, column=2, sticky="w", pady=2)
+            self.frame_pfx.grid_forget()
+            self.lbl_senha_portal.grid(row=1, column=2, sticky="w", padx=(20, 0), pady=2)
             self.entry_senha_portal.grid(row=1, column=3, padx=5, pady=2, sticky="w")
     
     def selecionar_pasta(self):
@@ -1294,8 +1538,15 @@ class NFSeDownloaderApp:
             messagebox.showinfo("Atenção", "Selecione uma empresa na lista")
             return
         
+        # Pegar apenas o primeiro item se múltiplos estiverem selecionados
+        if len(selected_item) > 1:
+            selected_item = selected_item[0]
+        
         item = self.tree.item(selected_item)
-        cnpj = str(item['values'][1])
+        cnpj_formatado = str(item['values'][1])
+        
+        # Remover formatação do CNPJ (pontos, traços, barras)
+        cnpj = cnpj_formatado.replace('.', '').replace('/', '').replace('-', '')
         
         empresa_dados = next(
             (e for e in self.empresas if str(e.get('cnpj')) == cnpj),
@@ -1303,6 +1554,7 @@ class NFSeDownloaderApp:
         )
         
         if not empresa_dados:
+            messagebox.showerror("Erro", "Empresa não encontrada nos dados")
             return
         
         self.limpar_campos()
@@ -1329,7 +1581,15 @@ class NFSeDownloaderApp:
             fg="black"
         )
         self.btn_cancelar.config(state="normal")
-        self.frame_cadastro.config(text=f"✏️ Editando: {empresa_dados.get('nome')}")
+        
+        # Mudar para aba de empresas caso esteja em outra
+        self.notebook.select(0)
+        
+        # Scroll para o topo
+        try:
+            self.entry_nome.focus()
+        except:
+            pass
     
     def salvar_empresa_action(self):
         """Salva ou atualiza empresa"""
@@ -1419,27 +1679,43 @@ class NFSeDownloaderApp:
     
     def remover_empresa(self):
         """Remove empresa selecionada"""
-        selected_item = self.tree.selection()
-        if not selected_item:
-            messagebox.showinfo("Atenção", "Selecione uma empresa na lista")
+        selected_items = self.tree.selection()
+        if not selected_items:
+            messagebox.showinfo("Atenção", "Selecione uma ou mais empresas na lista")
             return
         
-        item = self.tree.item(selected_item)
-        nome = item['values'][0]
-        cnpj = str(item['values'][1])
+        # Preparar lista de empresas a remover
+        empresas_remover = []
+        for selected_item in selected_items:
+            item = self.tree.item(selected_item)
+            nome = item['values'][0]
+            cnpj_formatado = str(item['values'][1])
+            # Remover formatação
+            cnpj = cnpj_formatado.replace('.', '').replace('/', '').replace('-', '')
+            empresas_remover.append((nome, cnpj))
         
-        if messagebox.askyesno(
-            "Confirmar Remoção",
-            f"Deseja realmente remover a empresa:\n\n{nome}\nCNPJ: {cnpj}"
-        ):
+        # Confirmação
+        if len(empresas_remover) == 1:
+            msg = f"Deseja realmente remover a empresa:\n\n{empresas_remover[0][0]}\nCNPJ: {empresas_remover[0][1]}"
+        else:
+            msg = f"Deseja realmente remover {len(empresas_remover)} empresas selecionadas?"
+        
+        if messagebox.askyesno("Confirmar Remoção", msg):
+            # Remover empresas
+            cnpjs_remover = [cnpj for _, cnpj in empresas_remover]
             self.empresas = [
                 emp for emp in self.empresas 
-                if str(emp['cnpj']) != cnpj
+                if str(emp['cnpj']) not in cnpjs_remover
             ]
             self.salvar_tudo()
             self.atualizar_lista_visual()
-            logger.info(f"Empresa removida: {nome}")
-            messagebox.showinfo("Sucesso", "Empresa removida")
+            
+            if len(empresas_remover) == 1:
+                logger.info(f"Empresa removida: {empresas_remover[0][0]}")
+                messagebox.showinfo("Sucesso", "Empresa removida")
+            else:
+                logger.info(f"{len(empresas_remover)} empresas removidas")
+                messagebox.showinfo("Sucesso", f"{len(empresas_remover)} empresas removidas")
     
     def atualizar_lista_visual(self):
         """Atualiza a TreeView com lista de empresas"""
@@ -1841,6 +2117,88 @@ class NFSeDownloaderApp:
                 
                 # Fechar navegador
                 navegador.close()
+                
+                # ============================================================
+                # GERAR RELATÓRIOS EXCEL AUTOMÁTICOS
+                # ============================================================
+                if count_total_baixados > 0 and strCompetenciaFiltro:
+                    self.adicionar_log("\n" + "="*60, "INFO")
+                    self.adicionar_log("📊 GERANDO RELATÓRIOS EXCEL...", "INFO")
+                    self.adicionar_log("="*60, "INFO")
+                    
+                    # Formatar competência para nome de pasta (MM-AAAA)
+                    comp_formatada = strCompetenciaFiltro.replace('/', '-')
+                    
+                    relatorios_gerados = []
+                    
+                    # Gerar relatório de EMITIDAS
+                    if baixar_emitidas:
+                        try:
+                            pasta_emitidas = os.path.join(caminho_empresa, "EMITIDAS", comp_formatada)
+                            if os.path.exists(pasta_emitidas):
+                                self.adicionar_log("📤 Processando XMLs de EMITIDAS...", "INFO")
+                                xmls_emitidas = []
+                                for root, dirs, files in os.walk(pasta_emitidas):
+                                    if 'XML' in root:
+                                        for file in files:
+                                            if file.lower().endswith('.xml'):
+                                                xmls_emitidas.append(os.path.join(root, file))
+                                
+                                if xmls_emitidas:
+                                    nome_relatorio = f"Relatório_Emitidas_{comp_formatada}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                                    caminho_relatorio = os.path.join(caminho_empresa, "EMITIDAS", nome_relatorio)
+                                    
+                                    sucesso = GeradorRelatorioExcel.gerar_relatorio_emitidas(
+                                        xmls_emitidas,
+                                        caminho_relatorio
+                                    )
+                                    
+                                    if sucesso:
+                                        self.adicionar_log(f"  ✅ Relatório EMITIDAS gerado: {nome_relatorio}", "SUCCESS")
+                                        relatorios_gerados.append(caminho_relatorio)
+                                    else:
+                                        self.adicionar_log(f"  ⚠️ Erro ao gerar relatório EMITIDAS", "WARNING")
+                                else:
+                                    self.adicionar_log("  ℹ️ Nenhum XML de EMITIDAS encontrado", "INFO")
+                        except Exception as e_rel:
+                            self.adicionar_log(f"  ❌ Erro ao gerar relatório EMITIDAS: {e_rel}", "ERROR")
+                            logger.error(f"Erro relatório emitidas: {e_rel}")
+                    
+                    # Gerar relatório de RECEBIDAS
+                    if baixar_recebidas:
+                        try:
+                            pasta_recebidas = os.path.join(caminho_empresa, "RECEBIDAS", comp_formatada)
+                            if os.path.exists(pasta_recebidas):
+                                self.adicionar_log("📥 Processando XMLs de RECEBIDAS...", "INFO")
+                                xmls_recebidas = []
+                                for root, dirs, files in os.walk(pasta_recebidas):
+                                    if 'XML' in root:
+                                        for file in files:
+                                            if file.lower().endswith('.xml'):
+                                                xmls_recebidas.append(os.path.join(root, file))
+                                
+                                if xmls_recebidas:
+                                    nome_relatorio = f"Relatório_Recebidas_{comp_formatada}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                                    caminho_relatorio = os.path.join(caminho_empresa, "RECEBIDAS", nome_relatorio)
+                                    
+                                    sucesso = GeradorRelatorioExcel.gerar_relatorio_recebidas(
+                                        xmls_recebidas,
+                                        caminho_relatorio
+                                    )
+                                    
+                                    if sucesso:
+                                        self.adicionar_log(f"  ✅ Relatório RECEBIDAS gerado: {nome_relatorio}", "SUCCESS")
+                                        relatorios_gerados.append(caminho_relatorio)
+                                    else:
+                                        self.adicionar_log(f"  ⚠️ Erro ao gerar relatório RECEBIDAS", "WARNING")
+                                else:
+                                    self.adicionar_log("  ℹ️ Nenhum XML de RECEBIDAS encontrado", "INFO")
+                        except Exception as e_rel:
+                            self.adicionar_log(f"  ❌ Erro ao gerar relatório RECEBIDAS: {e_rel}", "ERROR")
+                            logger.error(f"Erro relatório recebidas: {e_rel}")
+                    
+                    if relatorios_gerados:
+                        self.adicionar_log(f"\n📊 {len(relatorios_gerados)} relatório(s) Excel gerado(s) com sucesso!", "SUCCESS")
                 
                 # Mensagem final
                 msg_emitidas = f"{count_total_baixados} nota(s)" if baixar_emitidas and baixar_recebidas else f"{count_total_baixados} nota(s)"
@@ -2370,9 +2728,9 @@ class NFSeDownloaderApp:
                                     count_processados_periodo += 1
                                     continue
                             
-                            # Preparar pastas (RECEBIDAS/Prestador/)
+                            # Preparar pastas (RECEBIDAS/Competencia/PDF e XML diretamente)
                             pasta_comp = txt_competencia.replace('/', '-')
-                            dir_base = os.path.join(caminho_recebidas, pasta_comp, nome_prestador)
+                            dir_base = os.path.join(caminho_recebidas, pasta_comp)
                             dir_xml = os.path.join(dir_base, "XML")
                             dir_pdf = os.path.join(dir_base, "PDF")
                             
@@ -2512,6 +2870,279 @@ class NFSeDownloaderApp:
             logger.error(f"Erro RECEBIDAS: {e}\n{traceback.format_exc()}")
             return count_total_baixados
 
+    
+    def gerar_relatorios_manual(self):
+        """Gera relatórios Excel manualmente a partir de XMLs selecionados"""
+        try:
+            # Criar janela de diálogo personalizada
+            dialog = tk.Toplevel(self.root)
+            dialog.title("Gerar Relatórios Excel")
+            dialog.geometry("700x600")  # Aumentado de 650x450
+            dialog.transient(self.root)
+            dialog.grab_set()
+            
+            # Centralizar janela
+            dialog.update_idletasks()
+            x = (dialog.winfo_screenwidth() // 2) - (700 // 2)
+            y = (dialog.winfo_screenheight() // 2) - (600 // 2)
+            dialog.geometry(f"700x600+{x}+{y}")
+            
+            # Título
+            tk.Label(
+                dialog,
+                text="📊 Gerar Relatórios Excel",
+                font=("Arial", 14, "bold")
+            ).pack(pady=10)
+            
+            # Instruções (MAIS COMPACTO)
+            frame_instrucoes = tk.LabelFrame(dialog, text="Como Funciona", padx=10, pady=5)
+            frame_instrucoes.pack(fill="x", padx=20, pady=5)
+            
+            tk.Label(
+                frame_instrucoes,
+                text="1. Clique em 'Selecionar XMLs' e escolha os arquivos\n"
+                     "2. Escolha o tipo: EMITIDAS ou RECEBIDAS\n"
+                     "3. Clique em 'GERAR RELATÓRIO' e escolha onde salvar",
+                justify="left",
+                font=("Arial", 9)
+            ).pack(anchor="w")
+            
+            # Variáveis
+            xmls_selecionados = []
+            
+            # Frame seleção de XMLs (ALTURA FIXA)
+            frame_xmls = tk.LabelFrame(dialog, text="XMLs Selecionados", padx=10, pady=10)
+            frame_xmls.pack(fill="both", expand=True, padx=20, pady=10)
+            
+            # Label contador
+            lbl_contador = tk.Label(
+                frame_xmls,
+                text="Nenhum XML selecionado",
+                font=("Arial", 10, "bold"),
+                fg="gray"
+            )
+            lbl_contador.pack(pady=5)
+            
+            # Listbox para mostrar XMLs (ALTURA FIXA)
+            frame_lista = tk.Frame(frame_xmls)
+            frame_lista.pack(fill="both", expand=True, pady=5)
+            
+            scrollbar = tk.Scrollbar(frame_lista)
+            scrollbar.pack(side="right", fill="y")
+            
+            listbox = tk.Listbox(
+                frame_lista,
+                yscrollcommand=scrollbar.set,
+                font=("Consolas", 8),
+                height=10  # Altura fixa
+            )
+            listbox.pack(side="left", fill="both", expand=True)
+            scrollbar.config(command=listbox.yview)
+            
+            def selecionar_xmls():
+                arquivos = filedialog.askopenfilenames(
+                    title="Selecione os arquivos XML",
+                    filetypes=[
+                        ("Arquivos XML", "*.xml"),
+                        ("Todos os arquivos", "*.*")
+                    ],
+                    initialdir=self.path_download.get() if self.path_download.get() else os.path.expanduser("~")
+                )
+                
+                if arquivos:
+                    xmls_selecionados.clear()
+                    xmls_selecionados.extend(arquivos)
+                    
+                    # Atualizar listbox
+                    listbox.delete(0, tk.END)
+                    for xml in xmls_selecionados:
+                        nome_arquivo = os.path.basename(xml)
+                        listbox.insert(tk.END, nome_arquivo)
+                    
+                    # Atualizar contador
+                    qtd = len(xmls_selecionados)
+                    lbl_contador.config(
+                        text=f"✅ {qtd} arquivo(s) XML selecionado(s)",
+                        fg="green"
+                    )
+            
+            def limpar_selecao():
+                xmls_selecionados.clear()
+                listbox.delete(0, tk.END)
+                lbl_contador.config(
+                    text="Nenhum XML selecionado",
+                    fg="gray"
+                )
+            
+            # Botões de seleção
+            frame_botoes_xml = tk.Frame(frame_xmls)
+            frame_botoes_xml.pack(fill="x", pady=5)
+            
+            tk.Button(
+                frame_botoes_xml,
+                text="📁 Selecionar XMLs...",
+                command=selecionar_xmls,
+                cursor="hand2",
+                font=("Arial", 9),
+                bg="#E3F2FD"
+            ).pack(side="left", padx=(0, 5))
+            
+            tk.Button(
+                frame_botoes_xml,
+                text="🗑️ Limpar",
+                command=limpar_selecao,
+                cursor="hand2",
+                font=("Arial", 9)
+            ).pack(side="left")
+            
+            # Frame tipo de relatório (COMPACTO)
+            frame_tipo = tk.LabelFrame(dialog, text="Tipo de Relatório", padx=10, pady=5)
+            frame_tipo.pack(fill="x", padx=20, pady=10)
+            
+            var_tipo = tk.StringVar(value="emitidas")
+            
+            tk.Radiobutton(
+                frame_tipo,
+                text="📤 NFS-e EMITIDAS (você emitiu)",
+                variable=var_tipo,
+                value="emitidas",
+                font=("Arial", 9)
+            ).pack(anchor="w", pady=2)
+            
+            tk.Radiobutton(
+                frame_tipo,
+                text="📥 NFS-e RECEBIDAS (você recebeu)",
+                variable=var_tipo,
+                value="recebidas",
+                font=("Arial", 9)
+            ).pack(anchor="w", pady=2)
+            
+            # Frame botões (SEMPRE VISÍVEL)
+            frame_botoes = tk.Frame(dialog, bg="#f0f0f0", relief="raised", bd=1)
+            frame_botoes.pack(fill="x", padx=0, pady=0, side="bottom")
+            
+            def processar():
+                if not xmls_selecionados:
+                    messagebox.showwarning("Atenção", "Selecione pelo menos um arquivo XML")
+                    return
+                
+                tipo = var_tipo.get()
+                
+                # Perguntar onde salvar
+                nome_padrao = f"Relatório_{'Emitidas' if tipo == 'emitidas' else 'Recebidas'}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+                
+                arquivo_destino = filedialog.asksaveasfilename(
+                    title="Salvar Relatório Como",
+                    defaultextension=".xlsx",
+                    filetypes=[("Arquivo Excel", "*.xlsx")],
+                    initialfile=nome_padrao,
+                    initialdir=self.path_download.get() if self.path_download.get() else os.path.expanduser("~")
+                )
+                
+                if not arquivo_destino:
+                    return  # Usuário cancelou
+                
+                # Fechar dialog
+                dialog.destroy()
+                
+                # Processar em thread
+                threading.Thread(
+                    target=self._gerar_relatorio_xmls_selecionados,
+                    args=(xmls_selecionados.copy(), tipo, arquivo_destino),
+                    daemon=True
+                ).start()
+            
+            # Espaçamento interno
+            tk.Frame(frame_botoes, height=10).pack()
+            
+            # Botões em frame interno
+            frame_botoes_interno = tk.Frame(frame_botoes, bg="#f0f0f0")
+            frame_botoes_interno.pack(pady=10)
+            
+            tk.Button(
+                frame_botoes_interno,
+                text="✅ GERAR RELATÓRIO",
+                font=("Arial", 11, "bold"),
+                bg="#4CAF50",
+                fg="white",
+                command=processar,
+                cursor="hand2",
+                width=25,
+                height=2
+            ).pack(side="left", padx=10)
+            
+            tk.Button(
+                frame_botoes_interno,
+                text="❌ Cancelar",
+                font=("Arial", 11),
+                command=dialog.destroy,
+                cursor="hand2",
+                width=15,
+                height=2
+            ).pack(side="left", padx=10)
+            
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao abrir janela:\n{e}")
+            logger.error(f"Erro gerar_relatorios_manual: {e}\n{traceback.format_exc()}")
+    
+    def _gerar_relatorio_xmls_selecionados(self, lista_xmls, tipo, arquivo_destino):
+        """Gera relatório a partir de XMLs selecionados manualmente"""
+        try:
+            self.adicionar_log("\n" + "="*60, "INFO")
+            self.adicionar_log("📊 GERANDO RELATÓRIO MANUAL", "INFO")
+            self.adicionar_log(f"📁 XMLs selecionados: {len(lista_xmls)}", "INFO")
+            self.adicionar_log(f"📋 Tipo: {tipo.upper()}", "INFO")
+            self.adicionar_log("="*60, "INFO")
+            
+            # Gerar relatório
+            sucesso = False
+            if tipo == "emitidas":
+                self.adicionar_log("📤 Processando XMLs como EMITIDAS...", "INFO")
+                sucesso = GeradorRelatorioExcel.gerar_relatorio_emitidas(
+                    lista_xmls,
+                    arquivo_destino
+                )
+            else:
+                self.adicionar_log("📥 Processando XMLs como RECEBIDAS...", "INFO")
+                sucesso = GeradorRelatorioExcel.gerar_relatorio_recebidas(
+                    lista_xmls,
+                    arquivo_destino
+                )
+            
+            if sucesso:
+                self.adicionar_log("\n" + "="*60, "SUCCESS")
+                self.adicionar_log(f"✅ Relatório gerado com sucesso!", "SUCCESS")
+                self.adicionar_log(f"📄 Arquivo: {os.path.basename(arquivo_destino)}", "SUCCESS")
+                self.adicionar_log(f"📁 Local: {os.path.dirname(arquivo_destino)}", "SUCCESS")
+                self.adicionar_log("="*60, "SUCCESS")
+                
+                # Perguntar se quer abrir
+                resposta = messagebox.askyesno(
+                    "Sucesso",
+                    f"Relatório gerado com sucesso!\n\n"
+                    f"Arquivo: {os.path.basename(arquivo_destino)}\n"
+                    f"XMLs processados: {len(lista_xmls)}\n\n"
+                    f"Deseja abrir o arquivo agora?"
+                )
+                
+                if resposta:
+                    try:
+                        if os.name == 'nt':  # Windows
+                            os.startfile(arquivo_destino)
+                        elif os.name == 'posix':  # Linux/Mac
+                            import subprocess
+                            subprocess.call(['xdg-open', arquivo_destino])
+                    except Exception as e:
+                        self.adicionar_log(f"⚠️ Não foi possível abrir o arquivo: {e}", "WARNING")
+            else:
+                self.adicionar_log("\n❌ Erro ao gerar relatório", "ERROR")
+                messagebox.showerror("Erro", "Erro ao gerar relatório.\nVerifique o log para detalhes.")
+            
+        except Exception as e:
+            self.adicionar_log(f"\n❌ ERRO: {e}", "ERROR")
+            logger.error(f"Erro _gerar_relatorio_xmls_selecionados: {e}\n{traceback.format_exc()}")
+            messagebox.showerror("Erro", f"Erro ao gerar relatório:\n{e}")
+    
     def reset_ui(self):
         """Reseta interface após execução"""
         def _reset():
